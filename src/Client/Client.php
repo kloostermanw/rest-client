@@ -34,6 +34,9 @@ class Client implements ClientInterface
     const METHOD_PATCH = 'PATCH';
     const METHOD_DELETE = 'DELETE';
 
+    const SEND_AS_JSON = 'JSON';
+    const SEND_AS_FORM_VALUES = 'FORM';
+
     /**
      * @var string
      */
@@ -48,6 +51,9 @@ class Client implements ClientInterface
     /** @var ResponseParserInterface */
     protected $response_parser;
 
+    /** @var string */
+    protected $send_body_as;
+
     /**
      * @param $endpoint
      * @param ResponseParserInterface $responseParser
@@ -56,6 +62,7 @@ class Client implements ClientInterface
     {
         $this->endpoint = rtrim($endpoint, '/').'/';
         $this->response_parser = $responseParser;
+        $this->send_body_as = static::SEND_AS_FORM_VALUES;
     }
 
     /**
@@ -72,6 +79,14 @@ class Client implements ClientInterface
     public function useAuthenticator(AuthenticationProviderInterface $auth_provider)
     {
         $this->auth_provider = $auth_provider;
+    }
+
+    /**
+     * @param string $sendAsType
+     */
+    public function setBodyType($sendAsType)
+    {
+        $this->send_body_as = $sendAsType;
     }
 
     /**
@@ -236,11 +251,27 @@ class Client implements ClientInterface
      */
     protected function getRequest($method, $uri, array $data = [])
     {
-        $headers = [
-            'Content-Type' => 'application/x-www-form-urlencoded',
-        ];
+        switch ($this->send_body_as) {
+            case static::SEND_AS_JSON:
+                $headers = [
+                    'Content-Type' => 'application/json',
+                ];
 
-        return new Request($method, $uri, $headers, http_build_query($data, null, '&'));
+                $strData = json_encode($data);
+
+                break;
+            case static::SEND_AS_FORM_VALUES:
+            default:
+                $headers = [
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ];
+
+                $strData = http_build_query($data, null, '&');
+
+                break;
+        }
+
+        return new Request($method, $uri, $headers, $strData);
     }
 
     /**
