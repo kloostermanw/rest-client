@@ -31,8 +31,12 @@ class Client implements ClientInterface
     public final const METHOD_PATCH = 'PATCH';
     public final const METHOD_DELETE = 'DELETE';
 
+    public final const SEND_AS_JSON = 'JSON';
+    public final const SEND_AS_FORM_VALUES = 'FORM';
+
     private ?RequestSignerInterface $request_signer = null;
     private ?AuthenticationProviderInterface $auth_provider = null;
+    protected string $send_body_as = self::SEND_AS_FORM_VALUES;
 
     public function __construct(
         private readonly string $endpoint,
@@ -53,6 +57,11 @@ class Client implements ClientInterface
         $this->auth_provider = $auth_provider;
 
         return $this;
+    }
+
+    public function setBodyType(string $sendAsType): void
+    {
+        $this->send_body_as = $sendAsType;
     }
 
     public function get(string $resource, string|int $id): array
@@ -128,11 +137,27 @@ class Client implements ClientInterface
 
     private function getRequest(string $method, string $uri, array $data = []): Request
     {
-        $headers = [
-            'Content-Type' => 'application/x-www-form-urlencoded',
-        ];
+        switch ($this->send_body_as) {
+            case static::SEND_AS_JSON:
+                $headers = [
+                    'Content-Type' => 'application/json',
+                ];
 
-        return new Request($method, $uri, $headers, http_build_query($data));
+                $strData = json_encode($data);
+
+                break;
+            case static::SEND_AS_FORM_VALUES:
+            default:
+                $headers = [
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ];
+
+                $strData = http_build_query($data);
+
+                break;
+        }
+
+        return new Request($method, $uri, $headers, $strData);
     }
 
     private static function createNotFoundException(string $resource, string $identificator, ClientException $prev): ResourceNotFoundException
